@@ -1,8 +1,12 @@
 # Aegis Quantum-Cognitive (AQC)
 
-Open-source **PQC readiness auditor** for neural, biometric, and **JADC2** traffic.
+Open-source **PQC readiness auditor** for neural, biometric, and **JADC2** traffic — plus **auditor-ready FDA / DoD compliance** generation from a CBOM.
 
-It ingests PCAP captures (or a synthetic neural fleet), builds a **CycloneDX CBOM**, runs an **HNDL / Soul Catcher** audit on data in transit, and emits a **Quantum-Resistant Identity-First Segmentation** policy (YAML).
+## Capabilities
+
+- **CBOM** (CycloneDX 1.6) + **HNDL / Soul Catcher** audit.
+- **JADC2** quantum-safe microsegmentation policy (YAML).
+- **FDA e-STAR Cybersecurity Addendum** + **DoD NSM-10 PQC Transition Roadmap** (Markdown) via `aqc generate-fda-compliance`.
 
 ## Install
 
@@ -11,15 +15,16 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
 
-Python **3.11+** required.
-
 ## Usage
 
 ```bash
-aqc scan-neural-pcap -f capture.pcap -o ./reports
+aqc scan-neural-pcap -o ./reports
 aqc generate-jadc2-policy -o ./reports
-aqc full-audit -o ./reports
+aqc generate-fda-compliance --cbom ./reports/cbom.json --hndl ./reports/hndl-findings.json -o ./reports
+aqc full-audit -o ./reports   # runs scan + policy + compliance pack
 ```
+
+Optional: `brew install pandoc` and `pip install -e ".[render]"` for HTML/PDF export.
 
 ## License
 

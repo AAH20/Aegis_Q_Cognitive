@@ -45,8 +45,13 @@ from .jadc2_segmentation import (
     remediation_summary,
     render_policy,
 )
-
+from .compliance_compiler import (
+    load_bundle_from_disk,
+    summarise_bundle,
+    write_compliance_pack,
+)
 console = Console(highlight=False)
+
 
 # ---------------------------------------------------------------------------
 # Render helpers
@@ -172,6 +177,12 @@ def _alert_soul_catcher(findings: list[HNDLFinding]) -> None:
             border_style="red",
         )
     )
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
 
 @click.group(
     help="Aegis Quantum-Cognitive — PQC readiness auditor for neural & biometric fabrics.",
@@ -323,6 +334,178 @@ def generate_jadc2_policy(
     )
 
 
+@main.command("generate-fda-compliance")
+@click.option(
+    "-c",
+    "--cbom",
+    "cbom_path",
+    type=click.Path(path_type=Path, dir_okay=False, exists=True),
+    required=True,
+    help="Path to a CBOM JSON (typically reports/cbom.json).",
+)
+@click.option(
+    "-H",
+    "--hndl",
+    "hndl_path",
+    type=click.Path(path_type=Path, dir_okay=False, exists=True),
+    required=False,
+    help="Optional HNDL findings JSON (reports/hndl-findings.json).",
+)
+@click.option(
+    "-o",
+    "--output",
+    "out_dir",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=Path("./reports"),
+    show_default=True,
+)
+@click.option("--sponsor", default="Acquirer-Of-Record (TBD)", show_default=True)
+@click.option(
+    "--device-name",
+    "device_trade_name",
+    default="Subject Neural / Biometric Device",
+    show_default=True,
+)
+@click.option(
+    "--submission",
+    "fda_submission_type",
+    default="510(k)",
+    show_default=True,
+    help="FDA submission type (510(k), De Novo, PMA, ...).",
+)
+@click.option(
+    "--contract",
+    "contract_vehicle",
+    default="JADC2 — TBD",
+    show_default=True,
+)
+@click.option(
+    "--render-html/--no-render-html",
+    default=False,
+    show_default=True,
+    help="Also emit a printable HTML rendering (requires pandoc).",
+)
+@click.option(
+    "--render-pdf/--no-render-pdf",
+    default=False,
+    show_default=True,
+    help="Also emit a printable PDF (requires pandoc + weasyprint).",
+)
+def generate_fda_compliance(
+    cbom_path: Path,
+    hndl_path: Optional[Path],
+    out_dir: Path,
+    sponsor: str,
+    device_trade_name: str,
+    fda_submission_type: str,
+    contract_vehicle: str,
+    render_html: bool,
+    render_pdf: bool,
+) -> None:
+    """Generate the FDA e-STAR Addendum *and* DoD NSM-10 PQC roadmap."""
+
+    _print_banner()
+    console.print(
+        Rule(
+            "[bold cyan]Compiling Regulatory Compliance Pack[/bold cyan]",
+            style="cyan",
+        )
+    )
+    bundle = load_bundle_from_disk(
+        cbom_path,
+        hndl_path,
+        sponsor=sponsor,
+        device_trade_name=device_trade_name,
+        fda_submission_type=fda_submission_type,
+        contract_vehicle=contract_vehicle,
+    )
+    paths = write_compliance_pack(
+        bundle, out_dir, render_html=render_html, render_pdf=render_pdf
+    )
+    stats = summarise_bundle(bundle)
+
+    table = Table(
+        title="Compliance Pack Summary",
+        title_style="bold cyan",
+        header_style="bold magenta",
+    )
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
+    table.add_row("Document ID", str(stats["doc_id"]))
+    table.add_row("Sponsor / Holder", sponsor)
+    table.add_row("Device trade name", device_trade_name)
+    table.add_row("FDA submission type", fda_submission_type)
+    table.add_row("Contract vehicle", contract_vehicle)
+    table.add_row("Assets enumerated", str(stats["assets"]))
+    table.add_row(
+        "CRITICAL (Q-Day-vulnerable)",
+        f"[bold red]{stats['critical']}[/bold red]",
+    )
+    table.add_row(
+        "SAFE (CNSA 2.0 compliant)",
+        f"[bold green]{stats['safe']}[/bold green]",
+    )
+    table.add_row(
+        "Soul Catcher 2.0 vectors",
+        f"[bold white on red]{stats['soul_catcher_vectors']}[/bold white on red]",
+    )
+    console.print(table)
+
+    out_table = Table(
+        title="Generated Documents",
+        title_style="bold cyan",
+        header_style="bold magenta",
+    )
+    out_table.add_column("Artifact")
+    out_table.add_column("Path")
+    out_table.add_row("FDA e-STAR Cybersecurity Addendum (Markdown)", str(paths["fda_estar"]))
+    out_table.add_row("DoD NSM-10 PQC Transition Roadmap (Markdown)", str(paths["dod_nsm10"]))
+    for key, label in (
+        ("fda_estar_html", "FDA e-STAR Addendum (HTML)"),
+        ("dod_nsm10_html", "DoD NSM-10 Roadmap (HTML)"),
+        ("fda_estar_pdf", "FDA e-STAR Addendum (PDF)"),
+        ("dod_nsm10_pdf", "DoD NSM-10 Roadmap (PDF)"),
+    ):
+        if key in paths:
+            out_table.add_row(label, str(paths[key]))
+    console.print(out_table)
+
+    if render_pdf and "fda_estar_pdf" not in paths:
+        console.print(
+            "[bold yellow]Note:[/bold yellow] PDF rendering requested "
+            "but [italic]pandoc[/italic] and/or "
+            "[italic]weasyprint[/italic] not on PATH. Markdown still "
+            "written. Install with:\n"
+            "  [white]brew install pandoc[/white]\n"
+            "  [white]pip install weasyprint[/white]"
+        )
+    elif render_html and "fda_estar_html" not in paths:
+        console.print(
+            "[bold yellow]Note:[/bold yellow] HTML rendering requested "
+            "but [italic]pandoc[/italic] not on PATH. Markdown still "
+            "written.\n  [white]brew install pandoc[/white]"
+        )
+
+    console.print(
+        Panel(
+            Text(
+                "These are auditor-ready Markdown deliverables. Drop them "
+                "into Pandoc → PDF and they satisfy:\n\n"
+                "  • FDA RTA §22(c) — Cryptographic Bill of Materials\n"
+                "  • FDA §524B (PATCH Act) cyber-content requirements\n"
+                "  • NSM-10 / CNSA 2.0 vendor self-attestation\n"
+                "  • OMB M-23-02 cryptographic inventory\n\n"
+                "Without AQC, this paperwork costs $150k and 90 days from "
+                "a GRC consultancy. With AQC, it costs four seconds.",
+                style="bold white",
+            ),
+            title="[bold green]REGULATORY UNBLOCKER[/bold green]",
+            border_style="green",
+        )
+    )
+
+
+
 @main.command("full-audit")
 @click.option(
     "-f",
@@ -341,14 +524,21 @@ def generate_jadc2_policy(
     show_default=True,
 )
 @click.option("--seed", type=int, default=None)
+@click.option(
+    "--with-compliance/--no-compliance",
+    default=True,
+    show_default=True,
+    help="Also generate FDA + DoD compliance pack.",
+)
 @click.pass_context
 def full_audit(
     ctx: click.Context,
     pcap_file: Optional[Path],
     out_dir: Path,
     seed: Optional[int],
+    with_compliance: bool,
 ) -> None:
-    """Run CBOM + HNDL + JADC2 segmentation pipeline."""
+    """Run CBOM + HNDL + JADC2 + (optional) compliance pack."""
 
     ctx.invoke(
         scan_neural_pcap, pcap_file=pcap_file, out_dir=out_dir, seed=seed
@@ -357,6 +547,21 @@ def full_audit(
     ctx.invoke(
         generate_jadc2_policy, pcap_file=pcap_file, out_dir=out_dir, seed=seed
     )
+
+    if with_compliance:
+        console.print()
+        ctx.invoke(
+            generate_fda_compliance,
+            cbom_path=out_dir / "cbom.json",
+            hndl_path=out_dir / "hndl-findings.json",
+            out_dir=out_dir,
+            sponsor="Acquirer-Of-Record (TBD)",
+            device_trade_name="Subject Neural / Biometric Device",
+            fda_submission_type="510(k)",
+            contract_vehicle="JADC2 — TBD",
+            render_html=False,
+            render_pdf=False,
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover
