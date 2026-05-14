@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-quantum-cognitive"
+version = "0.1.0"
+description = "PQC readiness auditor for neural, biometric, and JADC2 fabrics. Defends against Soul Catcher 2.0 (quantum-decrypted brain-print spoofing) and Harvest-Now-Decrypt-Later attacks on BCI telemetry."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Aegis Quantum-Cognitive", email = "ops@aegis-quantum-cognitive.example" },
+]
+keywords = [
+    "pqc",
+    "post-quantum",
+    "hndl",
+    "jadc2",
+    "darpa-n3",
+    "bci",
+    "soul-catcher",
+    "cbom",
+    "microsegmentation",
+    "cybersecurity",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Other Audience",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Security :: Cryptography",
+    "Topic :: System :: Networking :: Monitoring",
+]
+dependencies = [
+    "click>=8.1",
+    "rich>=13.7",
+    "networkx>=3.2",
+    "scapy>=2.5",
+]
+
+[project.optional-dependencies]
+pqc = [
+    # liboqs-python is the OQS wrapper for ML-KEM / ML-DSA / SLH-DSA.
+    # It requires the system liboqs library at install time.
+    "liboqs-python>=0.10.0",
+]
+render = [
+    # Optional: PDF rendering for the FDA / NSM-10 compliance pack.
+    # `pandoc` is a separate system binary (brew install pandoc) that
+    # the compliance compiler detects on $PATH at runtime.
+    "weasyprint>=62",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "mypy>=1.10",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+aqc = "aqc.cli:main"
+
+[project.urls]
+"Homepage" = "https://github.com/AAH20/Aegis_Q_Cognitive"
+"Issues"   = "https://github.com/AAH20/Aegis_Q_Cognitive/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
