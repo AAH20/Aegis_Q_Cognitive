@@ -5,6 +5,7 @@ click>=8.1
 rich>=13.7
 networkx>=3.2
 scapy>=2.5
+cryptography>=42.0
 # Optional: liboqs-python provides ML-KEM-768 / ML-DSA-65 / SLH-DSA
 # bindings. Requires the system `liboqs` library. Install via:
 #   pip install "aegis-quantum-cognitive[pqc]"

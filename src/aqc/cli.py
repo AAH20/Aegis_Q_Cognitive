@@ -50,6 +50,17 @@ from .compliance_compiler import (
     summarise_bundle,
     write_compliance_pack,
 )
+from .q_tunnel_gateway import (
+    HybridPQCGateway,
+    TunnelMode,
+    run_demo_handshake,
+    write_demo_report,
+)
+from .bci_fhe_mock import (
+    cosine_baseline_template,
+    run_fhe_brainprint_demo,
+)
+
 console = Console(highlight=False)
 
 
@@ -505,6 +516,254 @@ def generate_fda_compliance(
     )
 
 
+@main.command("q-tunnel-demo")
+@click.option(
+    "--mode",
+    type=click.Choice(
+        [m.value for m in TunnelMode], case_sensitive=False
+    ),
+    default=TunnelMode.HYBRID.value,
+    show_default=True,
+    help="Tunnel mode. SIMULATION runs without liboqs but is NOT quantum safe.",
+)
+@click.option(
+    "-o",
+    "--output",
+    "out_dir",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=Path("./reports"),
+    show_default=True,
+)
+def q_tunnel_demo(mode: str, out_dir: Path) -> None:
+    """Perform a live hybrid ML-KEM-768 + X25519 handshake."""
+
+    _print_banner()
+    console.print(
+        Rule(
+            "[bold cyan]Hybrid PQC Tunnel — Live Handshake[/bold cyan]",
+            style="cyan",
+        )
+    )
+    runtime = HybridPQCGateway.runtime_report()
+
+    runtime_table = Table(
+        title="Gateway Runtime",
+        title_style="bold cyan",
+        header_style="bold magenta",
+    )
+    runtime_table.add_column("Capability")
+    runtime_table.add_column("Status")
+    for key, value in runtime.items():
+        coloured = (
+            f"[bold green]{value}[/bold green]"
+            if value not in (False, "MISSING", TunnelMode.SIMULATION.value)
+            else f"[bold red]{value}[/bold red]"
+        )
+        runtime_table.add_row(key, coloured)
+    console.print(runtime_table)
+
+    result = run_demo_handshake(mode=TunnelMode(mode))
+    t = result.transcript
+
+    handshake_table = Table(
+        title="Handshake Transcript",
+        title_style="bold cyan",
+        header_style="bold magenta",
+    )
+    handshake_table.add_column("Field")
+    handshake_table.add_column("Value")
+    handshake_table.add_row("Mode", t.mode.value)
+    handshake_table.add_row("ClientHello length (B)", str(t.client_hello_len))
+    handshake_table.add_row("ServerHello length (B)", str(t.server_hello_len))
+    handshake_table.add_row("Round-trip", f"{t.rtt_ms:.3f} ms")
+    handshake_table.add_row(
+        "Shared secret digest (SHA-256)",
+        f"{t.shared_secret_digest[:16]}…{t.shared_secret_digest[-8:]}",
+    )
+    handshake_table.add_row("Transcript signature", t.transcript_signature_alg)
+    handshake_table.add_row(
+        "Signature length (B)", str(t.transcript_signature_len)
+    )
+    handshake_table.add_row(
+        "Quantum-safe?",
+        "[bold green]YES[/bold green]"
+        if t.pqc_safe
+        else "[bold white on red]NO — SIMULATION ONLY[/bold white on red]",
+    )
+    console.print(handshake_table)
+
+    aead_table = Table(
+        title="AEAD Round-Trip Probe",
+        title_style="bold cyan",
+        header_style="bold magenta",
+    )
+    aead_table.add_column("Field")
+    aead_table.add_column("Value", overflow="fold")
+    aead_table.add_row("Plaintext", result.sample_plaintext)
+    aead_table.add_row(
+        "Ciphertext (hex, truncated)",
+        result.sample_ciphertext_hex[:96] + ("…" if len(result.sample_ciphertext_hex) > 96 else ""),
+    )
+    aead_table.add_row(
+        "Round-trip decrypt",
+        "[bold green]OK[/bold green]" if result.roundtrip_ok else "[bold red]FAILED[/bold red]",
+    )
+    console.print(aead_table)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report_path = out_dir / "q-tunnel-handshake.json"
+    write_demo_report(result, report_path)
+    console.print(
+        f"[bold cyan]Handshake report →[/bold cyan] [white]{report_path}[/white]"
+    )
+
+    if not t.pqc_safe:
+        console.print(
+            Panel(
+                Text(
+                    "This run executed in SIMULATION mode. The handshake "
+                    "shape is correct, the AEAD is real, the AEAD keys "
+                    "are real — but the ML-KEM-768 leg is a "
+                    "DETERMINISTIC HKDF and is NOT post-quantum secure.\n\n"
+                    "Install the [pqc] extra for true ML-KEM-768:\n"
+                    "    pip install -e \".[pqc]\"",
+                    style="bold yellow",
+                ),
+                title="[bold white on red] SIMULATION MODE — NOT QUANTUM SAFE [/bold white on red]",
+                border_style="red",
+            )
+        )
+    else:
+        console.print(
+            Panel(
+                Text(
+                    "Hybrid ML-KEM-768 + X25519 KEM established. "
+                    "Transcript signed by ML-DSA-65. Data plane wrapped "
+                    "in AES-256-GCM. The next packet that hits this "
+                    "tunnel is post-quantum confidential and authenticated.",
+                    style="bold white",
+                ),
+                title="[bold green]QUANTUM-SAFE TUNNEL UP[/bold green]",
+                border_style="green",
+            )
+        )
+
+
+@main.command("fhe-brainprint-demo")
+@click.option(
+    "--keysize",
+    type=int,
+    default=512,
+    show_default=True,
+    help="Paillier modulus size in bits. 512 = demo; bump to 2048 for prod.",
+)
+@click.option(
+    "-o",
+    "--output",
+    "out_dir",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=Path("./reports"),
+    show_default=True,
+)
+def fhe_brainprint_demo(keysize: int, out_dir: Path) -> None:
+    """Encrypt a Brain Print and run analytics on the ciphertext."""
+
+    _print_banner()
+    console.print(
+        Rule(
+            "[bold cyan]FHE on Brain Print — Soul Catcher Defuser[/bold cyan]",
+            style="cyan",
+        )
+    )
+
+    bp = cosine_baseline_template()
+    result = run_fhe_brainprint_demo(keysize_bits=keysize, bp=bp)
+
+    feat_table = Table(
+        title="Plaintext Brain Print (UHNW principal baseline)",
+        title_style="bold cyan",
+        header_style="bold magenta",
+    )
+    feat_table.add_column("Feature")
+    feat_table.add_column("Plaintext", justify="right")
+    feat_table.add_column("Cleartext Weight", justify="right")
+    for label, value, weight in zip(bp.labels, result.plaintext_features, result.weights):
+        feat_table.add_row(label, f"{value:.4f}", f"{weight:.4f}")
+    console.print(feat_table)
+
+    op_table = Table(
+        title="Homomorphic Analytics (computed on ciphertext only)",
+        title_style="bold cyan",
+        header_style="bold magenta",
+    )
+    op_table.add_column("Operation")
+    op_table.add_column("Plaintext result", justify="right")
+    op_table.add_column("Decrypted ciphertext result", justify="right")
+    op_table.add_column("Match")
+    def _match(plain: float, decrypted: float) -> str:
+        ok = abs(plain - decrypted) < 1e-3
+        return "[bold green]OK[/bold green]" if ok else "[bold red]FAIL[/bold red]"
+
+    op_table.add_row(
+        "Σ features (encrypted sum)",
+        f"{result.plaintext_sum:.4f}",
+        f"{result.decrypted_sum:.4f}",
+        _match(result.plaintext_sum, result.decrypted_sum),
+    )
+    op_table.add_row(
+        "mean(features)",
+        f"{result.plaintext_sum / len(bp.features):.4f}",
+        f"{result.decrypted_mean:.4f}",
+        _match(result.plaintext_sum / len(bp.features), result.decrypted_mean),
+    )
+    op_table.add_row(
+        "⟨features, weights⟩ (dot product)",
+        f"{result.plaintext_dot:.4f}",
+        f"{result.decrypted_dot:.4f}",
+        _match(result.plaintext_dot, result.decrypted_dot),
+    )
+    console.print(op_table)
+
+    console.print(
+        Panel(
+            Text(
+                "Even if an adversary HNDL-decrypts the AQC PQC tunnel "
+                "tomorrow, the underlying Brain Print payload was "
+                "encrypted under Paillier (here) / OpenFHE-CKKS (in "
+                "production) at the device. The analytics layer "
+                "computed mean, sum, and cosine similarity against a "
+                "cleartext template *without ever decrypting the "
+                "patient's brain-print*.\n\n"
+                f"Paillier modulus: {result.keysize_bits} bits. "
+                f"Correctness: {'PASS' if result.correctness_ok else 'FAIL'}.\n"
+                f"{result.note}",
+                style="bold white",
+            ),
+            title="[bold green]SOUL CATCHER 2.0 DEFUSER ACTIVE[/bold green]",
+            border_style="green",
+        )
+    )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fhe_report = {
+        "keysize_bits": result.keysize_bits,
+        "labels": list(bp.labels),
+        "plaintext_features": list(result.plaintext_features),
+        "weights": list(result.weights),
+        "plaintext_sum": result.plaintext_sum,
+        "decrypted_sum": result.decrypted_sum,
+        "decrypted_mean": result.decrypted_mean,
+        "plaintext_dot": result.plaintext_dot,
+        "decrypted_dot": result.decrypted_dot,
+        "correctness_ok": result.correctness_ok,
+        "note": result.note,
+    }
+    report_path = out_dir / "fhe-brainprint-demo.json"
+    report_path.write_text(json.dumps(fhe_report, indent=2), encoding="utf-8")
+    console.print(
+        f"[bold cyan]FHE demo report →[/bold cyan] [white]{report_path}[/white]"
+    )
+
 
 @main.command("full-audit")
 @click.option(
@@ -530,6 +789,12 @@ def generate_fda_compliance(
     show_default=True,
     help="Also generate FDA + DoD compliance pack.",
 )
+@click.option(
+    "--with-demos/--no-demos",
+    default=False,
+    show_default=True,
+    help="Also run the PQC tunnel and FHE brain-print demos.",
+)
 @click.pass_context
 def full_audit(
     ctx: click.Context,
@@ -537,8 +802,9 @@ def full_audit(
     out_dir: Path,
     seed: Optional[int],
     with_compliance: bool,
+    with_demos: bool,
 ) -> None:
-    """Run CBOM + HNDL + JADC2 + (optional) compliance pack."""
+    """Run CBOM + HNDL + JADC2 + (optionally) compliance + demos."""
 
     ctx.invoke(
         scan_neural_pcap, pcap_file=pcap_file, out_dir=out_dir, seed=seed
@@ -559,9 +825,13 @@ def full_audit(
             device_trade_name="Subject Neural / Biometric Device",
             fda_submission_type="510(k)",
             contract_vehicle="JADC2 — TBD",
-            render_html=False,
-            render_pdf=False,
         )
+
+    if with_demos:
+        console.print()
+        ctx.invoke(q_tunnel_demo, mode=TunnelMode.HYBRID.value, out_dir=out_dir)
+        console.print()
+        ctx.invoke(fhe_brainprint_demo, keysize=512, out_dir=out_dir)
 
 
 if __name__ == "__main__":  # pragma: no cover

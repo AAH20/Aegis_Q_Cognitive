@@ -42,6 +42,7 @@ dependencies = [
     "rich>=13.7",
     "networkx>=3.2",
     "scapy>=2.5",
+    "cryptography>=42.0",
 ]
 
 [project.optional-dependencies]
