@@ -17,3 +17,8 @@ cryptography>=42.0
 #   pip install "aegis-quantum-cognitive[render]"
 #   brew install pandoc            # or apt-get install pandoc
 # weasyprint>=62
+# markdown>=3.5
+# Optional: Gymnasium + NumPy power the Interrogation AGI (Sentinel tier).
+#   pip install "aegis-quantum-cognitive[agi]"
+# gymnasium>=0.29
+# numpy>=1.26

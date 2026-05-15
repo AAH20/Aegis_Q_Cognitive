@@ -60,6 +60,7 @@ from .bci_fhe_mock import (
     cosine_baseline_template,
     run_fhe_brainprint_demo,
 )
+from .report_pdf import render_reports_dir
 
 console = Console(highlight=False)
 
@@ -832,6 +833,102 @@ def full_audit(
         ctx.invoke(q_tunnel_demo, mode=TunnelMode.HYBRID.value, out_dir=out_dir)
         console.print()
         ctx.invoke(fhe_brainprint_demo, keysize=512, out_dir=out_dir)
+
+
+@main.command("render-pdfs")
+@click.option(
+    "-d",
+    "--dir",
+    "reports_dir",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=Path("./reports"),
+    show_default=True,
+    help="Directory containing cbom.json, *.md, etc.",
+)
+def render_pdfs(reports_dir: Path) -> None:
+    """Turn ``reports/`` Markdown and JSON artifacts into styled PDFs."""
+
+    _print_banner()
+    console.print(
+        Rule("[bold cyan]Rendering professional PDF report bundle[/bold cyan]", style="cyan")
+    )
+    if not reports_dir.is_dir():
+        raise click.ClickException(f"Not a directory: {reports_dir}")
+    results = render_reports_dir(reports_dir)
+    if not results:
+        console.print("[yellow]No recognised report sources found in this directory.[/yellow]")
+        return
+    table = Table(title="PDF export", title_style="bold cyan", header_style="bold magenta")
+    table.add_column("File")
+    table.add_column("Status")
+    for name in sorted(results.keys()):
+        msg = results[name]
+        if msg == "ok":
+            table.add_row(name, Text("OK", style="bold green"))
+        else:
+            table.add_row(name, Text(msg[:120], style="bold red"))
+    console.print(table)
+    ok = sum(1 for v in results.values() if v == "ok")
+    console.print(
+        f"[cyan]Wrote {ok} / {len(results)} PDF(s) →[/cyan] [white]{reports_dir.resolve()}[/white]"
+    )
+
+
+@main.command("unleash-interrogator")
+@click.option(
+    "--target",
+    type=str,
+    default="simulated/jadc2-bio-gateway",
+    show_default=True,
+    help="Label for the simulated interrogation surface (demo only).",
+)
+@click.option(
+    "--epochs",
+    type=int,
+    default=500,
+    show_default=True,
+    help="Number of RL episodes (training loops).",
+)
+@click.option("--seed", type=int, default=None, help="RNG seed for the environment.")
+def unleash_interrogator(target: str, epochs: int, seed: int | None) -> None:
+    """Launch the Interrogation AGI War Room (RL + recursive synthesis demo)."""
+
+    try:
+        from .agi_interrogator import JADC2BioEnv, RecursiveInterrogator, run_war_room
+    except ImportError as exc:
+        raise click.ClickException(
+            "Interrogation AGI requires optional dependencies. "
+            "Install with: pip install -e '.[agi]'"
+        ) from exc
+
+    _print_banner()
+    console.print(
+        Rule(
+            "[bold red]UNLEASH INTERROGATOR — SENTINEL TIER (SIMULATED RANGE)[/bold red]",
+            style="red",
+        )
+    )
+
+    env = JADC2BioEnv(target=target, seed=seed)
+    agent = RecursiveInterrogator(env=env)
+    result = run_war_room(agent, epochs=epochs, target=target)
+
+    console.print(
+        Panel(
+            Text(
+                f"Total reward (Σ episodes): {result.total_reward:+.1f}\n"
+                f"Cardiac / timing exploit surfaced: {'YES' if result.cardiac_exploit else 'no'}\n"
+                f"Soul Catcher 2.0 breach (sim): {'YES' if result.soul_catcher_breach else 'no'}\n"
+                f"Mutation generations: {result.mutation_generations}\n",
+                style="white",
+            ),
+            title="[bold cyan]Interrogation summary[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+    console.print(Text("Log tail:", style="bold dim"))
+    for line in result.log_tail:
+        console.print(f"  {line}")
 
 
 if __name__ == "__main__":  # pragma: no cover

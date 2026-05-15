@@ -49,6 +49,16 @@ Executives, VCs, and Program Managers do not buy insurance.
    infinite liability without PQC + FHE on the inbound channel.
    → `aqc fhe-brainprint-demo` shows that Brain Prints can be
    analysed by the cloud *without ever being decrypted in memory*.
+4. **Continuous Red Team — the Sentinel Tier (simulated).**
+   Static pentests go stale the moment firmware or policy changes. The
+   **Interrogation AGI** is a Gymnasium-backed, tabular RL loop that
+   models adaptive pressure on a *simulated* JADC2 / BCI gateway
+   (latency, ML-KEM block rate, gateway integrity, Soul Catcher–style
+   spoof semantics). When learning plateaus, a deterministic
+   “zero-day synthesis” step mutates the virtual packetcraft so the
+   agent can keep probing — suitable for **War Room** screen-shares
+   and range-owned training, not live Internet targets.
+   → `aqc unleash-interrogator` (requires `pip install -e ".[agi]"`).
 
 ---
 
@@ -67,6 +77,9 @@ pip install -e ".[pqc]"
 # Optional: PDF export of the FDA / NSM-10 deliverables.
 brew install pandoc          # or apt-get install pandoc
 pip install -e ".[render]"
+
+# Optional: Interrogation AGI — Gymnasium env + RL + Rich War Room UI.
+pip install -e ".[agi]"
 ```
 
 Python 3.11+ required.
@@ -79,6 +92,9 @@ Python 3.11+ required.
 # End-to-end: CBOM + HNDL + JADC2 microsegmentation +
 # FDA e-STAR Addendum + DoD NSM-10 Roadmap + live ML-KEM-768 + Paillier FHE.
 aqc full-audit --seed 1 -o ./reports --with-compliance --with-demos
+
+# After installing `.[agi]`: live terminal “War Room” (simulated bio-gateway RL).
+aqc unleash-interrogator --target simulated/jadc2-bio-gateway --epochs 500
 ```
 
 Outputs (under `./reports/` by default):
@@ -98,7 +114,7 @@ command to invoke `pandoc` and `weasyprint`.
 
 ---
 
-## The seven commands
+## The eight commands
 
 ```bash
 aqc --help
@@ -112,6 +128,8 @@ aqc --help
 | `q-tunnel-demo`               | Run a live hybrid ML-KEM-768 + X25519 handshake; ML-DSA-65 signature.   |
 | `fhe-brainprint-demo`         | Encrypt a Brain Print under Paillier; run analytics on ciphertext only. |
 | `full-audit`                  | All of the above, in one pipeline.                                      |
+| `render-pdfs`                 | Turn `reports/` Markdown + JSON into styled PDFs (WeasyPrint).         |
+| `unleash-interrogator`        | **[agi]** Full-screen Rich War Room: RL vs simulated BCI/PQC gateway; optional `--epochs`, `--seed`. |
 
 Console output is intentionally striking: red/orange for Q-Day
 vulnerabilities, green for CNSA 2.0 compliance, and a dedicated panel
@@ -142,20 +160,22 @@ the data after Q-Day**.
                        │      click + rich, striking UI         │
                        └────────────────┬───────────────────────┘
                                         │
-   ┌───────────────────────┬────────────┼─────────────────────┬─────────────────────┐
-   ▼                       ▼            ▼                     ▼                     ▼
-┌─────────────┐  ┌────────────────┐  ┌──────────────────┐ ┌────────────────────┐ ┌─────────────────┐
-│ cbom_       │  │ hndl_analyzer  │  │ jadc2_           │ │ compliance_        │ │ q_tunnel_       │
-│ generator   │  │ (Soul Catcher) │  │ segmentation     │ │ compiler           │ │ gateway         │
-│ (CycloneDX) │  │                │  │ (PQC microseg)   │ │ (FDA / NSM-10)     │ │ (ML-KEM + X25519)│
-└─────────────┘  └────────────────┘  └──────────────────┘ └────────────────────┘ └─────────────────┘
-                                                                                            │
-                                                                                            ▼
-                                                                                  ┌──────────────────┐
-                                                                                  │ bci_fhe_mock     │
-                                                                                  │ (Paillier on     │
-                                                                                  │  Brain Prints)   │
-                                                                                  └──────────────────┘
+   ┌───────────────────────┬────────────┼─────────────────────┬─────────────────────┬──────────────────┐
+   ▼                       ▼            ▼                     ▼                     ▼                  ▼
+┌─────────────┐  ┌────────────────┐  ┌──────────────────┐ ┌────────────────────┐ ┌─────────────────┐ ┌──────────────────┐
+│ cbom_       │  │ hndl_analyzer  │  │ jadc2_           │ │ compliance_        │ │ q_tunnel_       │ │ agi_interrogator │
+│ generator   │  │ (Soul Catcher) │  │ segmentation     │ │ compiler           │ │ gateway         │ │ (Gymnasium RL +  │
+│ (CycloneDX) │  │                │  │ (PQC microseg)   │ │ (FDA / NSM-10)     │ │ (ML-KEM + X25519)│ │  Rich War Room)  │
+└─────────────┘  └────────────────┘  └──────────────────┘ └────────────────────┘ └─────────────────┘ └────────┬─────────┘
+                                                                                            │                    │
+                                                                                            ▼                    │
+                                                                                  ┌──────────────────┐           │
+                                                                                  │ bci_fhe_mock     │           │
+                                                                                  │ (Paillier on     │           │
+                                                                                  │  Brain Prints)   │           │
+                                                                                  └──────────────────┘           │
+                                                                                                                │
+                              `JADC2BioEnv` · `RecursiveInterrogator` · `run_war_room` ←──────────────────────┘
 ```
 
 * **`cbom_generator`** — CycloneDX 1.6 CBOM. PCAP via scapy (optional);
@@ -178,6 +198,17 @@ the data after Q-Day**.
   compute Σ, mean, and ⟨features, weights⟩ on the ciphertext *without
   the private key*. Swap in OpenFHE / Microsoft SEAL / TenSEAL CKKS
   for production depth and float fidelity.
+* **`agi_interrogator`** (optional **`[agi]`** install) — `JADC2BioEnv`
+  is a Gymnasium `Env` with discrete actions (mutate payload, downgrade
+  cipher, inject 8 ms-class jitter, spoof EEG / brain-print semantics).
+  `RecursiveInterrogator` runs ε-greedy tabular Q-learning; on reward
+  plateau, `synthesize_new_zero_day()` bumps a *mutation generation* on
+  the env and injects exploration noise into Q (stand-in for an agentic
+  code-rewrite loop — **no external LLM** by default, air-gap safe).
+  `interrogation_ui` (`run_war_room`) renders epoch, rewards, gateway
+  integrity erosion, and Soul Catcher–flavoured logs in a classified-style
+  terminal. **Use only on systems you own**; the loop is simulated — no
+  raw sockets, no Internet scanning, no shipped exploits.
 
 ---
 
@@ -232,6 +263,10 @@ Quarterly retainer covering:
 * Continuous CBOM monitoring of the principal's bio fabric.
 * Vendor PQC compliance attestation.
 * "Soul Catcher 2.0" red-team exercises against staged twin devices.
+* With **`[agi]`** installed: `aqc unleash-interrogator` for a **simulated**
+  adaptive-pressure War Room on lab-owned gateway models (narrative-fit
+  for executive briefings — not a substitute for authorised penetration
+  testing).
 
 ---
 
@@ -261,8 +296,12 @@ Quarterly retainer covering:
 * Not real production-FHE. The Brain Print demo uses Paillier
   (real, additive HE) to prove the *property*; swap in OpenFHE /
   TenSEAL CKKS for floating-point depth and SIMD.
-* Not an offensive framework. AQC is read-only; the segmentation
-  engine emits policy, not exploits.
+* Not an Internet-scale offensive framework. Core AQC is read-only:
+  PCAP and policy analysis, not live exploitation. The optional
+  **`unleash-interrogator`** command is a **simulated** Gymnasium
+  environment + RL demo for training and executive demos on **range /
+  lab systems you control** — it does not open sockets or weaponise
+  payloads against third-party networks.
 
 ---
 

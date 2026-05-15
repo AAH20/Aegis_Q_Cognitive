@@ -52,10 +52,16 @@ pqc = [
     "liboqs-python>=0.10.0",
 ]
 render = [
-    # Optional: PDF rendering for the FDA / NSM-10 compliance pack.
-    # `pandoc` is a separate system binary (brew install pandoc) that
-    # the compliance compiler detects on $PATH at runtime.
+    # Professional PDF export (AQC report bundle). WeasyPrint renders
+    # styled HTML; `markdown` is the Markdown fallback when pandoc is
+    # not installed (`brew install pandoc` recommended for GFM tables).
     "weasyprint>=62",
+    "markdown>=3.5",
+]
+agi = [
+    # Interrogation AGI: Gymnasium bio-cyber env + tabular RL + War Room UI.
+    "gymnasium>=0.29",
+    "numpy>=1.26",
 ]
 dev = [
     "pytest>=8.0",

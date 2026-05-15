@@ -63,7 +63,9 @@ try:  # liboqs-python (PQC backend)
     import oqs  # type: ignore[import-untyped]
 
     _HAS_OQS = True
-except Exception:  # pragma: no cover
+except (ImportError, OSError, RuntimeError, SystemExit):  # pragma: no cover
+    # Some liboqs-python builds attempt a network install, then raise
+    # SystemExit(1) if hooks or shared libraries are unavailable.
     oqs = None  # type: ignore[assignment]
     _HAS_OQS = False
 
