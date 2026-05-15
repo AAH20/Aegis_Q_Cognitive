@@ -59,6 +59,14 @@ render = [
     "weasyprint>=62",
     "markdown>=3.5",
 ]
+api = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
+    # Shared with ``render`` — listed explicitly so ``pip install .[api]`` is sufficient.
+    "weasyprint>=62",
+    "markdown>=3.5",
+]
 agi = [
     # Interrogation AGI: Gymnasium bio-cyber env + tabular RL + War Room UI.
     "gymnasium>=0.29",
@@ -69,11 +77,13 @@ dev = [
     "pytest-cov>=5.0",
     "mypy>=1.10",
     "ruff>=0.5",
+    "httpx>=0.27",
 ]
 
 [project.scripts]
 aqc = "aqc.cli:main"
 aqc-ci-audit = "aqc.ci_cd_auditor:main"
+aqc-api = "aqc_api.main:main"
 
 [project.urls]
 "Homepage" = "https://github.com/AAH20/Aegis_Q_Cognitive"
