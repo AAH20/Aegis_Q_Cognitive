@@ -19,3 +19,4 @@ reports/
 *.pcapng
 .DS_Store
 .liboqs/
+knowledge_base/.sync_manifest.json

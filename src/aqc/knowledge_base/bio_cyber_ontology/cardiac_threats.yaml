@@ -1,0 +1,22 @@
+# AQC Bio-Cyber Ontology — cardiac timing stress (analytic / demo model).
+# Not medical advice; not patient-specific. Used to align scanners and
+# simulation thresholds with documented closed-loop timing hazards.
+
+version: 1
+meta:
+  ontology: bio_cyber.cardiac
+  last_review: "2026-05-01"
+  disclaimer: >
+    Represents research-oriented timing-abuse *surface* mapping for
+    authorised lab ranges only. Does not diagnose or treat.
+
+cardiac_exploit_timing:
+  id: cardiac_8ms_window
+  vulnerable_phase: "T-wave repolarization"
+  latency_threshold_ms: 8.0
+  required_payload_entropy: high
+  lethal_probability: critical
+  narrative_anchor: >
+    Microsecond-to-millisecond class timing perturbations on closed-loop
+    neuro-cardiac or stim paths can intersect vulnerable repolarisation
+    phases; static scanners miss adversarially crafted inter-frame jitter.

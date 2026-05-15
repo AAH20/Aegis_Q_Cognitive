@@ -24,6 +24,7 @@ from typing import Iterable, Iterator, Optional
 
 from . import CLASSICAL_VULNERABLE, PQC_APPROVED, __version__
 from ._models import CryptoAsset, DeviceClass, Severity
+from .akb import AKB, append_compliance_tail
 
 try:  # scapy is heavy; allow the module to load without it.
     from scapy.all import PcapReader  # type: ignore[import-untyped]
@@ -118,7 +119,7 @@ def _device_class_for(hint: str) -> DeviceClass:
 
 
 def _severity_for(
-    algorithm: str, device_class: DeviceClass
+    algorithm: str, device_class: DeviceClass, akb: AKB | None = None
 ) -> tuple[Severity, str]:
     """Score the (algorithm, device) pair against CNSA 2.0 expectations."""
 
@@ -134,16 +135,22 @@ def _severity_for(
         return Severity.SAFE, "NIST PQC primitive; CNSA 2.0 compliant."
     if algo in CLASSICAL_VULNERABLE:
         if high_value:
-            return (
-                Severity.CRITICAL,
+            msg = (
                 "CRITICAL Q-DAY VULNERABILITY: classical asymmetric crypto "
                 "protecting cognitively-sensitive telemetry. Adversary "
-                "HNDL captures decrypt on Q-Day via Shor's algorithm.",
+                "HNDL captures decrypt on Q-Day via Shor's algorithm."
             )
+            return (
+                Severity.CRITICAL,
+                append_compliance_tail(msg, "cbom.classical_asymmetric_on_cognitive", akb),
+            )
+        msg = (
+            "Classical asymmetric crypto. HNDL exposure pending "
+            "CNSA 2.0 migration."
+        )
         return (
             Severity.HIGH,
-            "Classical asymmetric crypto. HNDL exposure pending "
-            "CNSA 2.0 migration.",
+            append_compliance_tail(msg, "cbom.classical_asymmetric_on_cognitive", akb),
         )
     if algo in {"AES", "AES-128", "AES-256", "CHACHA20"}:
         return (
@@ -243,6 +250,7 @@ def scan_assets(
     pcap: Optional[Path | str] = None,
     *,
     seed: Optional[int] = None,
+    knowledge_root: Optional[Path] = None,
 ) -> list[CryptoAsset]:
     """Produce a deduplicated list of :class:`CryptoAsset` from a stream.
 
@@ -253,7 +261,14 @@ def scan_assets(
         unavailable) a deterministic synthetic neural fleet is used.
     seed:
         Optional seed for the synthetic generator. Useful for tests.
+    knowledge_root:
+        Optional path to a ``knowledge_base/`` tree (defaults / env / packaged).
     """
+
+    try:
+        akb = AKB.load(knowledge_root)
+    except (FileNotFoundError, ImportError):
+        akb = None
 
     raw: Iterable[tuple[str, int, str, str]]
     if pcap is None:
@@ -267,7 +282,7 @@ def scan_assets(
     for host, port, raw_algo, hint in raw:
         algorithm = _normalize_algorithm(raw_algo)
         device_class = _device_class_for(hint)
-        severity, rationale = _severity_for(algorithm, device_class)
+        severity, rationale = _severity_for(algorithm, device_class, akb)
         key = (host, port, algorithm)
         if key in seen:
             continue

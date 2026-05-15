@@ -24,29 +24,35 @@ import math
 import random
 import statistics
 from collections import Counter
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator, Optional, Sequence
 
 from . import CLASSICAL_VULNERABLE, PQC_APPROVED
 from ._models import CryptoAsset, DeviceClass, HNDLFinding, Severity
-
+from .akb import AKB, append_compliance_tail
 
 # ---------------------------------------------------------------------------
-# Tunables (kept module-level so they can be patched in tests / config)
+# HNDLAnalyzer defaults come from ``knowledge_base/`` (see ``akb.AKB``).
+# Legacy names below mirror the packaged ontology for tests / introspection.
 # ---------------------------------------------------------------------------
 
-#: Bits-of-entropy/byte at which a payload is considered "encrypted-looking".
-ENTROPY_CIPHERTEXT_FLOOR: float = 7.2
+_BOOT_AKB: AKB | None
+try:  # pragma: no branch - import-time load for stable module constants
+    _BOOT_AKB = AKB.load()
+except (FileNotFoundError, ImportError, KeyError, TypeError, ValueError):
+    _BOOT_AKB = None
 
-#: Packet rate (Hz) above which a stream looks like continuous neural feed.
-NEURAL_RATE_FLOOR_HZ: float = 200.0
-
-#: Median inter-arrival latency (ms) below which the stream is "real-time".
-NEURAL_LATENCY_CEILING_MS: float = 25.0
-
-#: Estimated Q-Day target year for messaging / forecasts.
-Q_DAY_TARGET_YEAR: int = 2030
+ENTROPY_CIPHERTEXT_FLOOR: float = (
+    _BOOT_AKB.neural.entropy_floor_bits_per_byte if _BOOT_AKB else 7.2
+)
+NEURAL_RATE_FLOOR_HZ: float = (
+    _BOOT_AKB.neural.rate_floor_hz if _BOOT_AKB else 200.0
+)
+NEURAL_LATENCY_CEILING_MS: float = (
+    _BOOT_AKB.neural.latency_ceiling_ms if _BOOT_AKB else 25.0
+)
+Q_DAY_TARGET_YEAR: int = _BOOT_AKB.slater.q_day_year if _BOOT_AKB else 2030
 
 
 @dataclass(slots=True)
@@ -84,15 +90,33 @@ class HNDLAnalyzer:
     def __init__(
         self,
         *,
-        entropy_floor: float = ENTROPY_CIPHERTEXT_FLOOR,
-        rate_floor_hz: float = NEURAL_RATE_FLOOR_HZ,
-        latency_ceiling_ms: float = NEURAL_LATENCY_CEILING_MS,
-        q_day_year: int = Q_DAY_TARGET_YEAR,
+        entropy_floor: float | None = None,
+        rate_floor_hz: float | None = None,
+        latency_ceiling_ms: float | None = None,
+        q_day_year: int | None = None,
+        akb: AKB | None = None,
+        knowledge_root: Path | None = None,
     ) -> None:
-        self.entropy_floor = entropy_floor
-        self.rate_floor_hz = rate_floor_hz
-        self.latency_ceiling_ms = latency_ceiling_ms
-        self.q_day_year = q_day_year
+        self._akb = akb if akb is not None else AKB.load(knowledge_root)
+        self.entropy_floor = (
+            entropy_floor
+            if entropy_floor is not None
+            else self._akb.neural.entropy_floor_bits_per_byte
+        )
+        self.rate_floor_hz = (
+            rate_floor_hz
+            if rate_floor_hz is not None
+            else self._akb.neural.rate_floor_hz
+        )
+        self.latency_ceiling_ms = (
+            latency_ceiling_ms
+            if latency_ceiling_ms is not None
+            else self._akb.neural.latency_ceiling_ms
+        )
+        self.q_day_year = (
+            q_day_year if q_day_year is not None else self._akb.slater.q_day_year
+        )
+        self.threat_profile_id = self._akb.slater.profile_id
 
     # -- Core scoring --------------------------------------------------------
 
@@ -148,14 +172,27 @@ class HNDLAnalyzer:
         if looks_neural and classical and cognitive_target:
             severity = Severity.CRITICAL
             soul_catcher_vector = True
+            cardiac_surface = (
+                latency <= self._akb.cardiac.latency_threshold_ms and classical
+            )
+            cardiac_frag = ""
+            if cardiac_surface:
+                cardiac_frag = (
+                    f" AKB bio-cyber ontology: sub-{self._akb.cardiac.latency_threshold_ms} ms "
+                    f"median inter-arrival intersects cardiac-timing surface "
+                    f"({self._akb.cardiac.vulnerable_phase})."
+                )
             notes = (
-                f"HNDL EXPLOITATION HIGHLY LIKELY. Stream matches "
+                f"HNDL EXPLOITATION HIGHLY LIKELY ({self.threat_profile_id}). Stream matches "
                 f"DARPA-N3 / Soul Catcher 1.0 fingerprint (entropy "
                 f"{entropy:.2f} bpb, {rate:.0f} Hz, {latency:.1f} ms) "
                 f"and is wrapped in classical {sample.algorithm}. "
                 f"Soul Catcher 2.0 vector: harvested today, brain-print "
                 f"decrypted by ~{self.q_day_year} via Shor and replayed "
-                f"as cognitive injection into JADC2 BCI loops."
+                f"as cognitive injection into JADC2 BCI loops.{cardiac_frag}"
+            )
+            notes = append_compliance_tail(
+                notes, "hndl.soul_catcher_2_0_vector", self._akb
             )
         elif looks_neural and classical:
             severity = Severity.HIGH
@@ -238,9 +275,9 @@ def _neural_intervals(
 
 
 def synthetic_samples(
-    assets: Optional[Sequence[CryptoAsset]] = None,
+    assets: Sequence[CryptoAsset] | None = None,
     *,
-    seed: Optional[int] = None,
+    seed: int | None = None,
 ) -> list[StreamSample]:
     """Synthesise stream samples that match a list of assets (or a default fleet)."""
 
@@ -329,7 +366,7 @@ def stream_samples_from_pcap(
             if len(ts) < 4:
                 continue
             intervals = [
-                max(0.05, (b - a) * 1000.0) for a, b in zip(ts, ts[1:])
+                max(0.05, (b - a) * 1000.0) for a, b in zip(ts, ts[1:], strict=False)
             ]
             yield StreamSample(
                 endpoint=f"{flow['host']}:{flow['port']}",

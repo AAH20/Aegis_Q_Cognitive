@@ -1,0 +1,35 @@
+# Named HNDL threat profile — "Slater HNDL 2026"
+# Encodes AQC-default assumptions for Harvest-Now-Decrypt-Later on
+# classical asymmetric protection of tactical + bio telemetry.
+#
+# meta.attribution_note: This is a *product threat profile* label for demos
+# and regression tests. It does not claim third-party endorsement unless
+# your counsel and partners explicitly authorise that language.
+
+version: 1
+meta:
+  profile_id: slater_hndl_2026
+  profile_label: "Slater HNDL 2026 (AQC threat profile)"
+  attribution_note: >
+    Illustrative profile aligning with public Q-day migration discourse
+    (NSM-10 / CNSA 2.0). Replace or extend with programme-specific
+    intelligence under contract.
+
+q_day_estimation_year: 2030
+
+targeted_algorithms:
+  - RSA-2048
+  - ECDHE
+  - ECC
+
+collection_priority:
+  - JADC2_Bio_Telemetry
+  - Executive_Biometric_Ring_Fleet
+  - Implant_Backhaul
+
+# Optional overrides for neural fingerprint (empty = use neural_threats.yaml).
+hndl_classifier_overrides: {}
+
+slater_priority_weights:
+  tactical_bio_mesh: 1.0
+  static_hq_backhaul: 0.6

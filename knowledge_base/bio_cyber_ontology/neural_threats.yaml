@@ -1,0 +1,36 @@
+# Neural / cognitive-channel vectors — Soul Catcher family & EEG ontology.
+# Drives HNDL heuristic thresholds; refine with your own clinical / SIGINT review.
+
+version: 1
+meta:
+  ontology: bio_cyber.neural
+  last_review: "2026-05-01"
+
+soul_catcher_2_0:
+  id: sc20_brain_print_spoof
+  description: >
+    Bidirectional BCI path where an adversary replays or forges a
+    victim's neural fingerprint into a command loop (JADC2 / MedTech).
+  eeg_frequency_bands_hz:
+    alpha: [8, 13]
+    beta: [13, 30]
+    gamma: [30, 100]
+  hndl_stream_fingerprint:
+    entropy_ciphertext_floor_bits_per_byte: 7.2
+    neural_packet_rate_floor_hz: 200.0
+    median_inter_arrival_ceiling_ms: 25.0
+  fhe_protective_controls:
+    min_computational_security_bits: 128
+    acceptable_scheme_families:
+      - "BFV"
+      - "CKKS"
+      - "Paillier_additive_property_demo"
+    rationale: >
+      Additive / leveled HE can gate cloud-side analytics without
+      cleartext brain-print residency; production systems require formal
+      crypto review and key-management separation.
+
+brain_print_exfiltration_1_0:
+  id: sc10_static_harvest
+  description: "Passive harvesting of neural telemetry for offline Q-Day decryption."
+  inherits_fingerprint: soul_catcher_2_0

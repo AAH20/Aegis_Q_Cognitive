@@ -114,7 +114,7 @@ command to invoke `pandoc` and `weasyprint`.
 
 ---
 
-## The eight commands
+## The nine commands
 
 ```bash
 aqc --help
@@ -130,6 +130,7 @@ aqc --help
 | `full-audit`                  | All of the above, in one pipeline.                                      |
 | `render-pdfs`                 | Turn `reports/` Markdown + JSON into styled PDFs (WeasyPrint).         |
 | `unleash-interrogator`        | **[agi]** Full-screen Rich War Room: RL vs simulated BCI/PQC gateway; optional `--epochs`, `--seed`. |
+| `update-knowledge-base`       | Simulated AKB “sync” — writes `.sync_manifest.json` under `knowledge_base/` (**no network**). |
 
 Console output is intentionally striking: red/orange for Q-Day
 vulnerabilities, green for CNSA 2.0 compliance, and a dedicated panel
@@ -149,6 +150,29 @@ that names every endpoint carrying a *Soul Catcher 2.0 vector*.
 AQC is the first auditor that scores this end-to-end, not just the
 crypto and not just the telemetry, but **the cognitive half-life of
 the data after Q-Day**.
+
+---
+
+## Advanced Knowledge Base (AKB)
+
+Machine-readable **ontology + threat profiles + regulatory mapping** live
+under [`knowledge_base/`](knowledge_base/) at the repo root (and are
+**bundled** under `src/aqc/knowledge_base/` for `pip install`).
+
+* **Bio-cyber:** `bio_cyber_ontology/cardiac_threats.yaml`,
+  `neural_threats.yaml` — HNDL stream fingerprint thresholds, EEG bands,
+  FHE notes, cardiac-timing window (analytic / demo; not clinical advice).
+* **Threat profile:** `threat_profiles/slater_hndl_2026.yaml` — named
+  *Slater HNDL 2026* profile (illustrative; does not imply third-party
+  endorsement unless your counsel agrees).
+* **Compliance matrix:** `compliance_mappings/nsm10_cnsa2.yaml` — NSM-10 /
+  CNSA 2.0 ↔ FIPS 203/204 cross-walk; CBOM and HNDL append `[AKB: …]`
+  investor-phrase tails where linked.
+
+`HNDLAnalyzer` and `scan_assets()` load these YAML files at runtime (override
+with `AQC_KNOWLEDGE_BASE` or `knowledge_root=`). **Investor notebook:**
+[`AQC_Investor_Interactive_Demo.ipynb`](AQC_Investor_Interactive_Demo.ipynb)
+(Colab-oriented; installs `pyyaml` / `networkx` / `matplotlib` / `gymnasium`).
 
 ---
 
@@ -179,10 +203,13 @@ the data after Q-Day**.
 ```
 
 * **`cbom_generator`** — CycloneDX 1.6 CBOM. PCAP via scapy (optional);
-  synthetic neural fleet otherwise.
-* **`hndl_analyzer`** — flags streams that *both* look like neural
-  telemetry (entropy ≥ 7.2 bpb, rate ≥ 200 Hz, latency ≤ 25 ms)
-  *and* ride on classical asymmetric crypto.
+  synthetic neural fleet otherwise. Severities append **regulatory phrase
+  tails** from the AKB mapping matrix where applicable.
+* **`hndl_analyzer`** — flags streams that *both* match the **AKB neural
+  fingerprint** (entropy floor, packet-rate floor, latency ceiling from YAML)
+  *and* ride on classical asymmetric crypto; **Slater HNDL 2026** supplies
+  Q-day year / collection-priority metadata; cardiac-timing ontology may
+  augment critical notes.
 * **`jadc2_segmentation`** — Identity-First, deny-by-default,
   ML-KEM-768-tunneled microsegmentation policy.
 * **`compliance_compiler`** — FDA e-STAR Cybersecurity Addendum

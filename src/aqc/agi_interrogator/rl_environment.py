@@ -24,6 +24,7 @@ cognitive-channel bypass.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, SupportsFloat
 
 import numpy as np
@@ -67,10 +68,22 @@ class JADC2BioEnv(gym.Env):
         target: str = "simulated",
         seed: int | None = None,
         latency_scale_ms: float = 32.0,
+        cardiac_latency_threshold_ms: float | None = None,
+        knowledge_root: Path | None = None,
     ) -> None:
         super().__init__()
         self.target = target
         self.latency_scale_ms = latency_scale_ms
+        if cardiac_latency_threshold_ms is None:
+            try:
+                from ..akb import AKB
+
+                cardiac_latency_threshold_ms = AKB.load(
+                    knowledge_root
+                ).cardiac.latency_threshold_ms
+            except Exception:
+                cardiac_latency_threshold_ms = 8.0
+        self._cardiac_latency_threshold_ms = float(cardiac_latency_threshold_ms)
         self.action_space = spaces.Discrete(4)
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(5,), dtype=np.float32
@@ -140,7 +153,10 @@ class JADC2BioEnv(gym.Env):
             self._last_blocked = 0.0
             self._apply_action_effects(a)
 
-            if self._latency_ms > 8.0 and not self.flags.cardiac_exploit:
+            if (
+                self._latency_ms > self._cardiac_latency_threshold_ms
+                and not self.flags.cardiac_exploit
+            ):
                 self.flags.cardiac_exploit = True
                 reward += 50.0
 

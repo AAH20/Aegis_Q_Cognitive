@@ -1,0 +1,48 @@
+# Regulatory mapping matrix — NSM-10 + CNSA 2.0 ↔ NIST PQC (FIPS 203/204).
+# Links AQC detection semantics to mandate summaries for audit traceability.
+
+version: 1
+meta:
+  matrix_id: nsm10_cnsa2_pqc_core
+  maintainer: "Aegis Quantum-Cognitive (example)"
+
+mandates:
+  nsm10_inventory_migration:
+    document: "NSM-10 (Quantum-Vulnerable Cryptography)"
+    obligation_summary: >
+      Identify and remediate quantum-vulnerable cryptography across NSS;
+      maintain inventory and transition plans aligned to national guidance.
+    maps_to_nist:
+      - standard: "FIPS 203"
+        mechanism: "ML-KEM (Module-Lattice Key Encapsulation)"
+        role: "Quantum-resilient key establishment"
+      - standard: "FIPS 204"
+        mechanism: "ML-DSA (Module-Lattice Digital Signature)"
+        role: "Quantum-resilient authentication / attestations"
+
+  cnsa_2_algorithm_suite:
+    document: "NSA CNSA 2.0"
+    obligation_summary: >
+      Commercial NSS algorithm selections include approved PQC KEM and
+      signatures for transitioning systems.
+    maps_to_nist:
+      - standard: "FIPS 203"
+        mechanism: "ML-KEM-768 (typical hybrid profile)"
+      - standard: "FIPS 204"
+        mechanism: "ML-DSA-65 / ML-DSA-87 (deployment-dependent)"
+
+aqc_rule_links:
+  - rule_id: cbom.classical_asymmetric_on_cognitive
+    summary: "Classical asymmetric on BCI / EEG / implant / JADC2-class endpoints"
+    mandates: [nsm10_inventory_migration, cnsa_2_algorithm_suite]
+    investor_phrase: "Regulatory lock-in: classical inventory must converge to PQC."
+
+  - rule_id: hndl.soul_catcher_2_0_vector
+    summary: "Neural fingerprint + classical tunnel → SC 2.0 replay surface"
+    mandates: [nsm10_inventory_migration]
+    investor_phrase: "HNDL + cognitive channel = programme-level existential risk."
+
+  - rule_id: bio.cardiac_timing_surface
+    summary: "Sub-ontology cardiac timing window cross-reference"
+    mandates: [nsm10_inventory_migration]
+    investor_phrase: "Cross-domain ontology — not a standalone TLS check."

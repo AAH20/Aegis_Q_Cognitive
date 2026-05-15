@@ -874,6 +874,33 @@ def render_pdfs(reports_dir: Path) -> None:
     )
 
 
+@main.command("update-knowledge-base")
+@click.option(
+    "--root",
+    "knowledge_root",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=None,
+    help="Optional path to knowledge_base/ (default: env AQC_KNOWLEDGE_BASE or packaged).",
+)
+def update_knowledge_base(knowledge_root: Path | None) -> None:
+    """Simulate fetching the latest AKB bundle (writes a local sync manifest).
+
+    Does not open outbound network connections.
+    """
+
+    from .kb_sync import simulate_cloud_sync
+
+    _print_banner()
+    console.print(
+        Rule("[bold yellow]AKB sync (simulated)[/bold yellow]", style="yellow")
+    )
+    root = simulate_cloud_sync(knowledge_root)
+    console.print(
+        f"[cyan]Knowledge base root:[/cyan] [white]{root}[/white]\n"
+        f"[dim]Written {root / '.sync_manifest.json'} — no remote fetch performed.[/dim]"
+    )
+
+
 @main.command("unleash-interrogator")
 @click.option(
     "--target",
