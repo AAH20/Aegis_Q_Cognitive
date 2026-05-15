@@ -318,6 +318,15 @@ We open conversations with PE firms and Tier-1 Defense Primes weekly.
 
 ---
 
+## Capital formation (reference)
+
+For a **threat-briefing–style** fundraising outline calibrated to this
+repository’s real commands and limitations, see
+[`docs/FUNDRAISING_BRIEF.md`](docs/FUNDRAISING_BRIEF.md). It is strategic
+reference only—not legal, securities, or export-control advice.
+
+---
+
 ## License
 
 Apache-2.0. The threat model, however, is no one's to license.
