@@ -138,6 +138,24 @@ that names every endpoint carrying a *Soul Catcher 2.0 vector*.
 
 ---
 
+## CI/CD — PQC gate for bio-telemetry code (optional)
+
+[`pqc-compliance-check.yml`](.github/workflows/pqc-compliance-check.yml)
+runs on **push / PR**: install AQC, then `python -m aqc.ci_cd_auditor`. The
+auditor applies **heuristic** rules: Python files that match biometric / BCI /
+BLE / telemetry *context* and import **classical asymmetric** primitives (RSA,
+EC, X25519 client, legacy `ssl`) **without** a PQC / hybrid hint in the same
+file cause **exit code 1** and a Rich “audit failure” panel with a remediation
+footer. Use `AQC_CI_REMEDIATION_CONTACT` (or repository variable of the same
+name in GitHub Actions) for your inbound email; the Python entrypoint also
+registers as the `aqc-ci-audit` console script.
+
+This is a **coarse static screen**, not FDA validation or a full cryptographic
+audit. Tune with `AQC_CI_EXCLUDE_PREFIXES` (comma-separated path prefixes) or
+`# aqc:ci-ignore-line` on specific lines when appropriate.
+
+---
+
 ## The threat model (one page)
 
 | Phase                | Attacker action                                                | Defender exposure                                                                 |

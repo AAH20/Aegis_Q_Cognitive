@@ -1,0 +1,40 @@
+# PQC / FDA-oriented static gate for bio-telemetry code paths.
+# Fails the job when classical asymmetric patterns appear in BCI/BLE/etc.
+# files without a PQC/hybrid hint. Heuristic only — not a full audit.
+#
+# Set repository variable AQC_CI_REMEDIATION_CONTACT or override env below.
+
+name: PQC compliance check (AQC CI auditor)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: pqc-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pqc-compliance:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install AQC (editable)
+        run: pip install --upgrade pip && pip install -e .
+
+      - name: Run AQC CI PQC gate
+        env:
+          # Optional: set repository variable AQC_CI_REMEDIATION_CONTACT
+          AQC_CI_REMEDIATION_CONTACT: ${{ vars.AQC_CI_REMEDIATION_CONTACT }}
+        run: python -m aqc.ci_cd_auditor

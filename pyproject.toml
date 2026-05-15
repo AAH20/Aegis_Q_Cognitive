@@ -73,6 +73,7 @@ dev = [
 
 [project.scripts]
 aqc = "aqc.cli:main"
+aqc-ci-audit = "aqc.ci_cd_auditor:main"
 
 [project.urls]
 "Homepage" = "https://github.com/AAH20/Aegis_Q_Cognitive"
